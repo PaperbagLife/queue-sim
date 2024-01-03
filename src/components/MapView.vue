@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, computed, reactive, ref, watch } from "vue";
+import { onMounted, computed, reactive, ref, watch, toRefs } from "vue";
 import * as d3 from "d3";
 
 type RunInfo = {
@@ -12,8 +12,13 @@ type RunInfo = {
   weekday: number;
   longitude: number;
   latitude: number;
+  scaled: number;
 };
 const data = ref<RunInfo[]>([]);
+const filterInstanceType = ref("");
+const instanceTypes = ref([""]);
+const filterCloud = ref("");
+const clouds = ref([""]);
 
 onMounted(() => {
   const testForm = document.getElementById("testForm");
@@ -39,8 +44,18 @@ onMounted(() => {
           weekday: JSON.parse(row["Weekday"]),
           longitude: JSON.parse(row["Longitude"]) + 180,
           latitude: JSON.parse(row["Latitude"]) + 90,
+          scaled: JSON.parse(row["Scaled Throughput"]),
         };
         data.value.push(runInfo);
+        if (
+          instanceTypes.value.find((v) => v === runInfo.instanceType) ===
+          undefined
+        ) {
+          instanceTypes.value.push(runInfo.instanceType);
+        }
+        if (clouds.value.find((v) => v === runInfo.cloud) === undefined) {
+          clouds.value.push(runInfo.cloud);
+        }
       });
     };
     reader.readAsText(input);
@@ -50,6 +65,7 @@ onMounted(() => {
 type RunNode = {
   offsetX: number;
   offsetY: number;
+  color: string;
   r: number;
   parent: RunNodeGroup;
 };
@@ -64,8 +80,21 @@ type RunNodeGroup = {
 const scaleX = 800 / 360;
 const scaleY = 600 / 180;
 
+const colorScale = d3.interpolateRgbBasis(["#4287f5", "#f54242"]);
+
+const filteredData = computed(() => {
+  const res = data.value.filter((entry) => {
+    return (
+      (filterCloud.value === "" || entry.cloud === filterCloud.value) &&
+      (filterInstanceType.value === "" ||
+        entry.instanceType === filterInstanceType.value)
+    );
+  });
+  return res;
+});
+
 const layouts = computed<RunNodeGroup[]>(() => {
-  const nodes = data.value.map((runInfo) => {
+  const nodes = filteredData.value.map((runInfo) => {
     const runNodeGroup: RunNodeGroup = {
       runInfo,
       children: [],
@@ -82,6 +111,7 @@ const layouts = computed<RunNodeGroup[]>(() => {
         offsetX: location.x,
         offsetY: location.y,
         r: location.r,
+        color: colorScale(runInfo.scaled),
         parent: runNodeGroup,
       });
     });
@@ -97,6 +127,15 @@ const layouts = computed<RunNodeGroup[]>(() => {
     <br />
     <input type="submit" value="submit" />
   </form>
+  <select v-model="filterCloud">
+    <option v-for="cloud in clouds" :key="cloud">{{ cloud }}</option>
+  </select>
+  <select v-model="filterInstanceType">
+    <option v-for="instanceType in instanceTypes" :key="instanceType">
+      {{ instanceType }}
+    </option>
+  </select>
+
   <svg width="800" height="600" class="system-svg">
     <g
       v-for="runNodeGroup in layouts"
@@ -109,7 +148,7 @@ const layouts = computed<RunNodeGroup[]>(() => {
         v-for="child in runNodeGroup.children"
         :key="`${child.offsetX}-${child.offsetY}-${child.r}`"
         :r="child.r"
-        fill="red"
+        :fill="child.color"
         :cy="child.offsetY"
         :cx="child.offsetX"
       ></circle>
