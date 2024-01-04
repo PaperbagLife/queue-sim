@@ -1,8 +1,6 @@
 <script setup lang="ts">
-import { onMounted, computed, reactive, ref, watch, toRefs } from "vue";
+import { onMounted, computed, ref, watch } from "vue";
 import * as d3 from "d3";
-
-import { createPopper } from "@popperjs/core";
 
 type RunInfo = {
   id: string;
@@ -124,7 +122,6 @@ const layouts = computed<RunNodeGroup[]>(() => {
 
 const popperDiv = ref<HTMLElement | null>(null);
 const visible = ref(true);
-const timer = ref<ReturnType<typeof setTimeout>>();
 
 const hoveredReference = ref<Element | null>(null);
 const hoveredEntity = ref<RunInfo | null>(null);
@@ -182,10 +179,6 @@ function onConsoleClick(e: MouseEvent) {
     }
   }
 }
-
-function goToReport(id: string) {
-  open(`https://sensei.clockwork.io/user/gallery/?audit=${id}`);
-}
 </script>
 
 <template>
@@ -235,16 +228,21 @@ function goToReport(id: string) {
     </div>
 
     <div class="row d-flex justify-content-center">
-      <div>filter cloud</div>
-      <select v-model="filterCloud" class="w-25 mx-2">
-        <option v-for="cloud in clouds" :key="cloud">{{ cloud }}</option>
-      </select>
-      <div>filter instance type</div>
-      <select v-model="filterInstanceType" class="w-25 mx-2">
-        <option v-for="instanceType in instanceTypes" :key="instanceType">
-          {{ instanceType }}
-        </option>
-      </select>
+      <div class="w-25 mx-2">
+        <span>filter cloud</span>
+        <select v-model="filterCloud">
+          <option v-for="cloud in clouds" :key="cloud">{{ cloud }}</option>
+        </select>
+      </div>
+
+      <div class="w-25 mx-2">
+        <span>filter instance type</span>
+        <select v-model="filterInstanceType">
+          <option v-for="instanceType in instanceTypes" :key="instanceType">
+            {{ instanceType }}
+          </option>
+        </select>
+      </div>
     </div>
 
     <div class="row">
