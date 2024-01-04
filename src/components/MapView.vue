@@ -235,9 +235,11 @@ function goToReport(id: string) {
     </div>
 
     <div class="row d-flex justify-content-center">
+      <div>filter cloud</div>
       <select v-model="filterCloud" class="w-25 mx-2">
         <option v-for="cloud in clouds" :key="cloud">{{ cloud }}</option>
       </select>
+      <div>filter instance type</div>
       <select v-model="filterInstanceType" class="w-25 mx-2">
         <option v-for="instanceType in instanceTypes" :key="instanceType">
           {{ instanceType }}
