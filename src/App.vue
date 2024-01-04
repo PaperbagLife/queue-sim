@@ -1,5 +1,5 @@
 <template>
-  <MapView msg="Welcome to Your Vue.js + TypeScript App" />
+  <MapView />
 </template>
 
 <script lang="ts">

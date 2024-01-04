@@ -2,6 +2,8 @@
 import { onMounted, computed, reactive, ref, watch, toRefs } from "vue";
 import * as d3 from "d3";
 
+import { createPopper } from "@popperjs/core";
+
 type RunInfo = {
   id: string;
   nodeSizes: number[];
@@ -119,41 +121,159 @@ const layouts = computed<RunNodeGroup[]>(() => {
   });
   return nodes;
 });
+
+const popperDiv = ref<HTMLElement | null>(null);
+const visible = ref(true);
+const timer = ref<ReturnType<typeof setTimeout>>();
+
+const hoveredReference = ref<Element | null>(null);
+const hoveredEntity = ref<RunInfo | null>(null);
+
+function onConsoleHover(e: MouseEvent) {
+  if (!(e.target instanceof Element)) {
+    hoveredReference.value = document.body;
+    hoveredEntity.value = null;
+    return;
+  }
+
+  const renderNodeGroup = e.target.closest<SVGGElement>(".run-node-group");
+  if (renderNodeGroup) {
+    hoveredReference.value = renderNodeGroup;
+    const xd = id2RunInfo.value.get(renderNodeGroup?.dataset.group ?? "");
+    if (xd) {
+      hoveredEntity.value = xd;
+    }
+  }
+}
+
+const id2RunInfo = computed(() => {
+  const m = new Map<string, RunInfo>();
+  filteredData.value.forEach((entry) => {
+    m.set(entry.id, entry);
+  });
+  return m;
+});
+
+watch(
+  [() => hoveredEntity, () => hoveredReference],
+  ([hoverEntity, reference]) => {
+    if (!hoverEntity || !reference) {
+      visible.value = false;
+      return;
+    }
+  },
+  { immediate: true }
+);
+
+const clickInfo = ref<RunInfo | null>(null);
+function onConsoleClick(e: MouseEvent) {
+  if (!(e.target instanceof Element)) {
+    hoveredReference.value = document.body;
+    hoveredEntity.value = null;
+    return;
+  }
+
+  const renderNodeGroup = e.target.closest<SVGGElement>(".run-node-group");
+  if (renderNodeGroup) {
+    hoveredReference.value = renderNodeGroup;
+    const xd = id2RunInfo.value.get(renderNodeGroup?.dataset.group ?? "");
+    if (xd) {
+      clickInfo.value = xd;
+    }
+  }
+}
+
+function goToReport(id: string) {
+  open(`https://sensei.clockwork.io/user/gallery/?audit=${id}`);
+}
 </script>
 
 <template>
-  <form id="testForm">
-    <input type="file" id="UploadFile" accept=".csv" />
-    <br />
-    <input type="submit" value="submit" />
-  </form>
-  <select v-model="filterCloud">
-    <option v-for="cloud in clouds" :key="cloud">{{ cloud }}</option>
-  </select>
-  <select v-model="filterInstanceType">
-    <option v-for="instanceType in instanceTypes" :key="instanceType">
-      {{ instanceType }}
-    </option>
-  </select>
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+    integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN"
+    crossorigin="anonymous"
+  />
+  <div class="col">
+    <div class="row">
+      <div class="col-6">
+        <div
+          v-show="visible"
+          ref="popperDiv"
+          class="hover-card popper"
+          tabindex="-1"
+        >
+          <div>Currently hovering:</div>
+          <div>Bandwidth: {{ hoveredEntity?.bandwidth }}</div>
+          <div>ID: {{ hoveredEntity?.id }}</div>
+          <div>Cloud: {{ hoveredEntity?.cloud }}</div>
+        </div>
+      </div>
+      <div class="col-6">
+        <div>
+          <div>Selected:</div>
+          <div>Bandwidth:{{ clickInfo?.bandwidth }}</div>
+          <a
+            :href="`https://sensei.clockwork.io/user/gallery/?audit=${
+              clickInfo?.id ?? ''
+            }`"
+            target="_blank"
+          >
+            ID:{{ clickInfo?.id }}
+          </a>
+          <div>Cloud:{{ clickInfo?.cloud }}</div>
+        </div>
+      </div>
+    </div>
 
-  <svg width="800" height="600" class="system-svg">
-    <g
-      v-for="runNodeGroup in layouts"
-      :key="runNodeGroup.runInfo.id"
-      :style="{
-        transform: `translate(${runNodeGroup.x}px, ${runNodeGroup.y}px)`,
-      }"
-    >
-      <circle
-        v-for="child in runNodeGroup.children"
-        :key="`${child.offsetX}-${child.offsetY}-${child.r}`"
-        :r="child.r"
-        :fill="child.color"
-        :cy="child.offsetY"
-        :cx="child.offsetX"
-      ></circle>
-    </g>
-  </svg>
+    <div class="row">
+      <form id="testForm">
+        <input type="file" id="UploadFile" accept=".csv" />
+        <input type="submit" value="submit" />
+      </form>
+    </div>
+
+    <div class="row d-flex justify-content-center">
+      <select v-model="filterCloud" class="w-25 mx-2">
+        <option v-for="cloud in clouds" :key="cloud">{{ cloud }}</option>
+      </select>
+      <select v-model="filterInstanceType" class="w-25 mx-2">
+        <option v-for="instanceType in instanceTypes" :key="instanceType">
+          {{ instanceType }}
+        </option>
+      </select>
+    </div>
+
+    <div class="row">
+      <svg
+        width="800"
+        height="600"
+        class="system-svg"
+        @mouseover="onConsoleHover"
+        @click="onConsoleClick"
+      >
+        <g
+          v-for="runNodeGroup in layouts"
+          class="run-node-group"
+          :key="runNodeGroup.runInfo.id"
+          :data-group="runNodeGroup.runInfo.id"
+          :style="{
+            transform: `translate(${runNodeGroup.x}px, ${runNodeGroup.y}px)`,
+          }"
+        >
+          <circle
+            v-for="child in runNodeGroup.children"
+            :key="`${child.offsetX}-${child.offsetY}-${child.r}`"
+            :r="child.r"
+            :fill="child.color"
+            :cy="child.offsetY"
+            :cx="child.offsetX"
+          ></circle>
+        </g>
+      </svg>
+    </div>
+  </div>
 </template>
 
 <style>
