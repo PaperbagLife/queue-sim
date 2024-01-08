@@ -1,16 +1,20 @@
 <template>
-  <MapView />
+  <div class="col">
+    <router-link class="col-auto" to="/queue-sim">QueueSim</router-link>
+    <router-link class="col-auto" to="/map">Bandwidth Map</router-link>
+  </div>
+
+  <router-view></router-view>
 </template>
 
 <script lang="ts">
 import { defineComponent } from "vue";
 import MapView from "./components/MapView.vue";
+import HelloWorld from "./components/HelloWorld.vue";
 
 export default defineComponent({
   name: "App",
-  components: {
-    MapView,
-  },
+  components: {},
 });
 </script>
 
@@ -23,5 +27,8 @@ export default defineComponent({
   color: #c8c8c8;
   background: rgb(22, 22, 22);
   min-height: 100vh;
+}
+router-link {
+  color: white;
 }
 </style>
