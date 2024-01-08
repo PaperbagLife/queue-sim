@@ -235,7 +235,7 @@ function onConsoleClick(e: MouseEvent) {
         </select>
       </div>
 
-      <div class="w-25 mx-2">
+      <div class="w-50 mx-2">
         <span>filter instance type</span>
         <select v-model="filterInstanceType">
           <option v-for="instanceType in instanceTypes" :key="instanceType">
