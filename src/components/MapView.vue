@@ -253,6 +253,7 @@ function onConsoleClick(e: MouseEvent) {
         @mouseover="onConsoleHover"
         @click="onConsoleClick"
       >
+        <image href="../assets/worldMap.png" height="600" width="800" />
         <g
           v-for="runNodeGroup in layouts"
           class="run-node-group"
@@ -278,7 +279,7 @@ function onConsoleClick(e: MouseEvent) {
 
 <style>
 .system-svg {
-  background-color: rgb(0, 0, 28);
+  background-color: rgb(241, 241, 241);
 }
 
 circle {

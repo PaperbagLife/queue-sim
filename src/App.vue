@@ -1,6 +1,6 @@
 <template>
   <div class="col">
-    <router-link class="col-auto" to="/queue-sim">QueueSim</router-link>
+    <router-link class="col-auto" to="/">QueueSim</router-link>
     <router-link class="col-auto" to="/map">Bandwidth Map</router-link>
   </div>
 
