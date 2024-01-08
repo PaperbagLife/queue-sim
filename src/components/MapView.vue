@@ -245,10 +245,8 @@ function onConsoleClick(e: MouseEvent) {
       </div>
     </div>
 
-    <div class="row">
+    <div class="row justify-content-center">
       <svg
-        width="800"
-        height="600"
         class="system-svg"
         @mouseover="onConsoleHover"
         @click="onConsoleClick"
@@ -280,6 +278,8 @@ function onConsoleClick(e: MouseEvent) {
 <style>
 .system-svg {
   background-color: rgb(241, 241, 241);
+  width: 800px !important;
+  height: 600px;
 }
 
 circle {
