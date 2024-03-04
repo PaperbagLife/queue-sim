@@ -2,6 +2,9 @@
 import { onMounted, computed, ref, watch } from "vue";
 import * as d3 from "d3";
 
+const HEIGHT = 600;
+const WIDTH = 800;
+
 type RunInfo = {
   id: string;
   nodeSizes: number[];
@@ -43,7 +46,7 @@ onMounted(() => {
           createTime: JSON.parse(row["Create Time"]),
           weekday: JSON.parse(row["Weekday"]),
           longitude: JSON.parse(row["Longitude"]) + 180,
-          latitude: JSON.parse(row["Latitude"]) + 90,
+          latitude: 90 - JSON.parse(row["Latitude"]),
           scaled: JSON.parse(row["Scaled Throughput"]),
         };
         data.value.push(runInfo);
@@ -80,7 +83,7 @@ type RunNodeGroup = {
 const scaleX = 800 / 360;
 const scaleY = 600 / 180;
 
-const colorScale = d3.interpolateRgbBasis(["#4287f5", "#f54242"]);
+const colorScale = d3.interpolateRgbBasis(["#f54242", "#4287f5"]);
 
 const filteredData = computed(() => {
   const res = data.value.filter((entry) => {
@@ -103,7 +106,7 @@ const layouts = computed<RunNodeGroup[]>(() => {
     };
     const packedLocations = d3.packSiblings(
       runInfo.nodeSizes.map((count) => {
-        return { r: Math.sqrt(count) };
+        return { r: count };
       })
     );
     packedLocations.forEach((location: { x: number; y: number; r: number }) => {
@@ -247,11 +250,42 @@ function onConsoleClick(e: MouseEvent) {
 
     <div class="row justify-content-center">
       <svg
-        class="system-svg"
+        class="system-svg px-0 mb-2"
         @mouseover="onConsoleHover"
         @click="onConsoleClick"
+        :width="WIDTH + 20"
+        :height="HEIGHT"
       >
-        <image href="../assets/worldMap.png" height="600" width="800" />
+        <image
+          href="../assets/worldMap.png"
+          x="20"
+          :height="HEIGHT"
+          :width="WIDTH"
+        />
+        <g class="axis">
+          <line
+            x1="65"
+            y1="0"
+            x2="65"
+            :y2="HEIGHT"
+            stroke="black"
+            stroke-width="2px"
+          />
+          <text class="axis-label">Bandwidth (%)</text>
+          <g class="tick" v-for="i in [0, 25, 50, 75, 100]" :key="i">
+            <line
+              x1="65"
+              :y1="(i / 100) * HEIGHT"
+              x2="70"
+              :y2="(i / 100) * HEIGHT"
+              stroke="black"
+              stroke-width="2px"
+            />
+            <text :y="i === 100 ? 15 : HEIGHT - (i / 100) * HEIGHT" x="62">
+              {{ i }}%
+            </text>
+          </g>
+        </g>
         <g
           v-for="runNodeGroup in layouts"
           class="run-node-group"
@@ -285,5 +319,14 @@ function onConsoleClick(e: MouseEvent) {
 circle {
   stroke: white;
   stroke-width: 0.2px;
+  cursor: pointer;
+}
+
+.tick {
+  text-anchor: end;
+}
+
+.axis-label {
+  transform: translate(20px, 400px) rotate(-90deg);
 }
 </style>
