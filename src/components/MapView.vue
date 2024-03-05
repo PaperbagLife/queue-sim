@@ -21,6 +21,13 @@ const data = ref<RunInfo[]>([]);
 const filterInstanceType = ref("");
 const instanceTypes = ref([""]);
 const filterCloud = ref("");
+const filterRegion = ref("");
+const regions = ["us", "eu", "asia"];
+const regionCoords = [
+  { x: 220, y: 290 },
+  { x: 400, y: 230 },
+  { x: 640, y: 350 },
+];
 const clouds = ref([""]);
 
 onMounted(() => {
@@ -80,8 +87,18 @@ type RunNodeGroup = {
   children: RunNode[];
 };
 
-const scaleX = 800 / 360;
-const scaleY = 600 / 180;
+const AMERICA = 110;
+const EUROPE = 190;
+
+function getRegionFromLongitude(longitude: number) {
+  if (longitude <= AMERICA) {
+    return "us";
+  }
+  if (longitude <= EUROPE) {
+    return "eu";
+  }
+  return "asia";
+}
 
 const colorScale = d3.interpolateRgbBasis(["#f54242", "#4287f5"]);
 
@@ -90,19 +107,39 @@ const filteredData = computed(() => {
     return (
       (filterCloud.value === "" || entry.cloud === filterCloud.value) &&
       (filterInstanceType.value === "" ||
-        entry.instanceType === filterInstanceType.value)
+        entry.instanceType === filterInstanceType.value) &&
+      getRegionFromLongitude(entry.longitude) === filterRegion.value
     );
   });
+  console.log(res);
   return res;
 });
 
-const layouts = computed<RunNodeGroup[]>(() => {
+type Layout = {
+  nodeGroups: RunNodeGroup[];
+  maxNodeSize: number;
+};
+
+const layouts = computed<Layout>(() => {
+  let maxNodeSize = 0;
+  filteredData.value.forEach((runInfo) => {
+    const sum = runInfo.nodeSizes.reduce((partialSum, a) => partialSum + a, 0);
+    if (sum > maxNodeSize) {
+      maxNodeSize = sum;
+    }
+  });
+  // Round to the nearest 5
+  maxNodeSize = Math.ceil(maxNodeSize / 5) * 5;
   const nodes = filteredData.value.map((runInfo) => {
     const runNodeGroup: RunNodeGroup = {
       runInfo,
       children: [],
-      x: runInfo.longitude * scaleX,
-      y: runInfo.latitude * scaleY,
+      x:
+        50 +
+        (WIDTH - 100) *
+          (runInfo.nodeSizes.reduce((partialSum, a) => partialSum + a, 0) /
+            maxNodeSize),
+      y: (1 - runInfo.scaled) * HEIGHT,
     };
     const packedLocations = d3.packSiblings(
       runInfo.nodeSizes.map((count) => {
@@ -120,7 +157,7 @@ const layouts = computed<RunNodeGroup[]>(() => {
     });
     return runNodeGroup;
   });
-  return nodes;
+  return { nodeGroups: nodes, maxNodeSize };
 });
 
 const popperDiv = ref<HTMLElement | null>(null);
@@ -139,9 +176,9 @@ function onConsoleHover(e: MouseEvent) {
   const renderNodeGroup = e.target.closest<SVGGElement>(".run-node-group");
   if (renderNodeGroup) {
     hoveredReference.value = renderNodeGroup;
-    const xd = id2RunInfo.value.get(renderNodeGroup?.dataset.group ?? "");
-    if (xd) {
-      hoveredEntity.value = xd;
+    const runInfo = id2RunInfo.value.get(renderNodeGroup?.dataset.group ?? "");
+    if (runInfo) {
+      hoveredEntity.value = runInfo;
     }
   }
 }
@@ -173,12 +210,18 @@ function onConsoleClick(e: MouseEvent) {
     return;
   }
 
+  const renderRegion = e.target.closest<SVGGElement>(".region");
+  if (renderRegion) {
+    filterRegion.value = renderRegion?.dataset.region ?? "";
+    return;
+  }
+
   const renderNodeGroup = e.target.closest<SVGGElement>(".run-node-group");
   if (renderNodeGroup) {
     hoveredReference.value = renderNodeGroup;
-    const xd = id2RunInfo.value.get(renderNodeGroup?.dataset.group ?? "");
-    if (xd) {
-      clickInfo.value = xd;
+    const runInfo = id2RunInfo.value.get(renderNodeGroup?.dataset.group ?? "");
+    if (runInfo) {
+      clickInfo.value = runInfo;
     }
   }
 }
@@ -204,6 +247,7 @@ function onConsoleClick(e: MouseEvent) {
           <div>Bandwidth: {{ hoveredEntity?.bandwidth }}</div>
           <div>ID: {{ hoveredEntity?.id }}</div>
           <div>Cloud: {{ hoveredEntity?.cloud }}</div>
+          <div>NodeSizes:{{ hoveredEntity?.nodeSizes }}</div>
         </div>
       </div>
       <div class="col-6">
@@ -219,6 +263,7 @@ function onConsoleClick(e: MouseEvent) {
             ID:{{ clickInfo?.id }}
           </a>
           <div>Cloud:{{ clickInfo?.cloud }}</div>
+          <div>NodeSizes:{{ clickInfo?.nodeSizes }}</div>
         </div>
       </div>
     </div>
@@ -254,9 +299,10 @@ function onConsoleClick(e: MouseEvent) {
         @mouseover="onConsoleHover"
         @click="onConsoleClick"
         :width="WIDTH + 20"
-        :height="HEIGHT"
+        :height="HEIGHT + 20"
       >
         <image
+          v-if="filterRegion === ''"
           href="../assets/worldMap.png"
           x="20"
           :height="HEIGHT"
@@ -271,7 +317,7 @@ function onConsoleClick(e: MouseEvent) {
             stroke="black"
             stroke-width="2px"
           />
-          <text class="axis-label">Bandwidth (%)</text>
+          <text class="axis-label-y">Bandwidth (%)</text>
           <g class="tick" v-for="i in [0, 25, 50, 75, 100]" :key="i">
             <line
               x1="65"
@@ -286,8 +332,46 @@ function onConsoleClick(e: MouseEvent) {
             </text>
           </g>
         </g>
+        <g class="axis">
+          <line
+            x1="0"
+            :y1="HEIGHT"
+            :x2="WIDTH"
+            :y2="HEIGHT"
+            stroke="black"
+            stroke-width="2px"
+          />
+          <text class="axis-label-x">Sum of top three colocation size</text>
+          <g class="tick" v-for="i in [0, 1, 2, 3, 4, 5]" :key="i">
+            <line
+              :x1="50 + (i / 5) * (WIDTH - 100)"
+              :y1="HEIGHT - 5"
+              :x2="50 + (i / 5) * (WIDTH - 100)"
+              :y2="HEIGHT"
+              stroke="black"
+              stroke-width="2px"
+            />
+            <text :x="50 + (i / 5) * (WIDTH - 100)" :y="HEIGHT + 16">
+              {{ (i * layouts.maxNodeSize) / 5 }}
+            </text>
+          </g>
+        </g>
+        <g v-if="filterRegion === ''">
+          <g
+            v-for="i in [0, 1, 2]"
+            :key="i"
+            class="region"
+            :data-region="regions[i]"
+          >
+            <circle
+              :cx="regionCoords[i].x"
+              :cy="regionCoords[i].y"
+              r="20"
+            ></circle>
+          </g>
+        </g>
         <g
-          v-for="runNodeGroup in layouts"
+          v-for="runNodeGroup in layouts.nodeGroups"
           class="run-node-group"
           :key="runNodeGroup.runInfo.id"
           :data-group="runNodeGroup.runInfo.id"
@@ -313,7 +397,7 @@ function onConsoleClick(e: MouseEvent) {
 .system-svg {
   background-color: rgb(241, 241, 241);
   width: 800px !important;
-  height: 600px;
+  height: 640px !important;
 }
 
 circle {
@@ -326,7 +410,11 @@ circle {
   text-anchor: end;
 }
 
-.axis-label {
+.axis-label-y {
   transform: translate(20px, 400px) rotate(-90deg);
+}
+
+.axis-label-x {
+  transform: translate(300px, 630px);
 }
 </style>
